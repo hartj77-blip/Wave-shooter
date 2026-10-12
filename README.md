@@ -14,6 +14,8 @@ Open `index.html` in a browser, or host the repo on GitHub Pages (Settings → P
 
 Controls: WASD to move, Shift to sprint, C to crouch, mouse to aim and shoot, R to reload, G for a grenade, V to knife, F to use an armory or hold to revive a squadmate, 4 to deploy an airstrike or sentry, N to start the next wave early, M for voice chat. Phones and tablets get on-screen controls.
 
+ https://hartj77-blip.github.io/Wave-shooter/
+
 ## How it's built
 
 Everything is in `index.html`: three.js r128 from cdnjs for rendering, procedural textures and synthesized sound, no build step. `peerjs.min.js` is a local copy of PeerJS 1.5 for co-op (the page falls back to jsDelivr if it's missing).
