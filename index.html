@@ -1546,9 +1546,19 @@ function loadPeerJS(){if(window.Peer)return Promise.resolve();
 function peerOptions(){const isLocal=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);let o=null;
   try{o=new URLSearchParams(location.search).get('peerServer')||sessionStorage.getItem('ho_peer_server');if(o&&isLocal)sessionStorage.setItem('ho_peer_server',o);}catch(e){}
   if(!o||!isLocal)return {debug:1};const [host,port]=o.split(':');return {debug:1,host,port:Number(port)||9000,path:'/',secure:false,config:{iceServers:[]}};}
+// Relay (TURN) for players whose networks can't link up directly, common on mobile data and some routers.
+// Fill in a Metered app name and API key (free plan at metered.ca). That key is meant for browsers and capped on Metered's side.
+const RELAY={app:'',key:''};
+let iceCache=null;
+async function iceConfig(){if(iceCache||!RELAY.app||!RELAY.key)return iceCache;
+  try{const ac=new AbortController();const t=setTimeout(()=>ac.abort(),5000);
+    const r=await fetch(`https://${RELAY.app}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(RELAY.key)}`,{signal:ac.signal});clearTimeout(t);
+    const l=r.ok?await r.json():null;if(Array.isArray(l)&&l.length)iceCache={iceServers:[{urls:'stun:stun.l.google.com:19302'},...l]};}catch(e){}
+  return iceCache;}
 function friendly(err){const map={'browser-incompatible':'This browser doesn’t support peer-to-peer connections. Try Chrome, Safari, Firefox or Edge.',network:'Couldn’t reach the matchmaking server. Check your internet connection.','server-error':'Couldn’t reach the matchmaking server. Try again in a moment.','socket-error':'Couldn’t reach the matchmaking server. Check your internet connection.','peer-unavailable':'No open room with that code. Check the code, and make sure the host’s game is still open.'};
   return new Error(map[err&&err.type]||(err&&err.message)||'Connection failed');}
-function openPeer(id){return new Promise((resolve,reject)=>{const peer=id?new Peer(id,peerOptions()):new Peer(peerOptions());const onErr=e=>{peer.destroy();reject(e);};peer.once('open',()=>{peer.off('error',onErr);resolve(peer);});peer.once('error',onErr);});}
+async function openPeer(id){const o=peerOptions();if(!o.host){const c=await iceConfig();if(c)o.config=c;}
+  return new Promise((resolve,reject)=>{const peer=id?new Peer(id,o):new Peer(o);const onErr=e=>{peer.destroy();reject(e);};peer.once('open',()=>{peer.off('error',onErr);resolve(peer);});peer.once('error',onErr);});}
 function randomCode(){const b=crypto.getRandomValues(new Uint32Array(4));return Array.from(b,n=>CODE_CHARS[n%CODE_CHARS.length]).join('');}
 function keepFindable(peer){const re=()=>{if(!peer.destroyed&&peer.disconnected){try{peer.reconnect();}catch(e){}}};
   peer.on('disconnected',()=>setTimeout(re,1500));document.addEventListener('visibilitychange',()=>{if(!document.hidden)re();});
