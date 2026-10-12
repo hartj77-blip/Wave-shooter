@@ -22,6 +22,10 @@ Everything is in `index.html`: three.js r128 from cdnjs for rendering, procedura
 
 For local co-op testing, run a PeerJS server and open `http://localhost:8000/?peerServer=localhost:9000`.
 
+### Co-op relay
+
+Players normally connect directly. Some networks, mobile data especially, block that, and joining fails with "Couldn't connect to that room". A relay (TURN) server fixes it. Sign up for the free plan at [metered.ca](https://www.metered.ca/), then put your app name and API key into `RELAY` near the top of the networking code in `index.html`. The key is meant to be used from browsers, and Metered caps usage on the free plan.
+
 ## Versions
 
 Every release stays playable. `index.html` is the latest build, `versions.html` lists the older ones, and each old build is a frozen copy in `versions/`. Before changing `index.html` for a new release, copy it to `versions/<n>-<name>.html`, add a card for it in `versions.html`, and bump `NET_PREFIX` in the new build so old and new co-op rooms don't mix.
