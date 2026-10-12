@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Wave Shooter Versions</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@500&family=Barlow+Condensed:wght@400;500;600;700&display=swap">
+<style>
+:root{--ink:#0b0d0f;--card:#15181b;--rule:rgba(232,236,228,.14);--chalk:#eef0ea;--ash:#a3a89e;--signal:#f2b33d;--signal-ink:#1e1404;color-scheme:dark}
+html,body{margin:0;background:var(--ink);color:var(--chalk);font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:40px 16px 60px}
+.eyebrow{font-size:14px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;color:var(--signal)}
+h1{font-family:Teko,"Arial Narrow",Impact,sans-serif;font-weight:500;font-size:clamp(56px,12vw,96px);line-height:.85;margin:10px 0 12px;text-transform:uppercase}
+p.lead{color:var(--ash);font-size:18px;line-height:1.45;margin:0 0 28px}
+ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+li{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:18px 20px;display:grid;grid-template-columns:1fr auto;gap:6px 18px;align-items:center}
+.n{font-size:13px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--ash)}
+.n b{color:var(--signal);font-weight:600}
+h2{margin:2px 0 4px;font-size:26px;font-weight:600}
+li p{grid-column:1/-1;margin:4px 0 0;color:var(--ash);font-size:17px;line-height:1.4}
+a.play{background:var(--signal);color:var(--signal-ink);text-decoration:none;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:10px 18px;border-radius:8px;font-size:16px;white-space:nowrap}
+a.play:hover{background:#ffc455}
+a.play:focus-visible{outline:2px solid var(--chalk);outline-offset:2px}
+@media (max-width:520px){li{grid-template-columns:1fr}a.play{justify-self:start}}
+</style>
+<main>
+  <div class="eyebrow">Wave Shooter</div>
+  <h1>Every version</h1>
+  <p class="lead">Each build is kept playable, so you can see how the game grew. Newest first. Co-op rooms only connect players on the same version.</p>
+  <ol>
+    <li><div><div class="n"><b>Latest</b></div><h2>Holdout</h2></div><a class="play" href="./">Play</a>
+      <p>Version 3: open iron sights and red dot, a bigger sniper scope with a bold reticle, and explosions that no longer stutter or slice through walls.</p></li>
+    <li><div><div class="n">Version 2 · October 2026</div><h2>Holdout, first release</h2></div><a class="play" href="versions/2-holdout.html">Play</a>
+      <p>MW3 Survival style. A sunlit village square, soldiers who shoot back, attack dogs, juggernauts and helicopters, three armories with air support and a Delta squad, plus 1–4 player co-op with voice chat.</p></li>
+    <li><div><div class="n">Version 1 · October 2026</div><h2>Bunker Nine Zombies</h2></div><a class="play" href="versions/1-bunker-nine.html">Play</a>
+      <p>Where it started: Black Ops style zombies in a boarded-up bunker, with a mystery box, perk machines and an upgrade station, plus co-op with voice chat.</p></li>
+  </ol>
+</main>
