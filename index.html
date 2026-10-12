@@ -1549,12 +1549,16 @@ function peerOptions(){const isLocal=/^(localhost|127\.0\.0\.1)$/.test(location.
 // Relay (TURN) for players whose networks can't link up directly, common on mobile data and some routers.
 // Fill in a Metered app name and API key (free plan at metered.ca). That key is meant for browsers and capped on Metered's side.
 const RELAY={app:'',key:''};
+// Without a key: PeerJS's own servers plus Metered's free public relay, which also listens on port 443 so it gets through strict firewalls.
+const PUBLIC_ICE={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'},
+  {urls:['turn:eu-0.turn.peerjs.com:3478','turn:us-0.turn.peerjs.com:3478'],username:'peerjs',credential:'peerjsp'},
+  {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}]};
 let iceCache=null;
-async function iceConfig(){if(iceCache||!RELAY.app||!RELAY.key)return iceCache;
+async function iceConfig(){if(iceCache)return iceCache;if(!RELAY.app||!RELAY.key)return PUBLIC_ICE;
   try{const ac=new AbortController();const t=setTimeout(()=>ac.abort(),5000);
     const r=await fetch(`https://${RELAY.app}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(RELAY.key)}`,{signal:ac.signal});clearTimeout(t);
     const l=r.ok?await r.json():null;if(Array.isArray(l)&&l.length)iceCache={iceServers:[{urls:'stun:stun.l.google.com:19302'},...l]};}catch(e){}
-  return iceCache;}
+  return iceCache||PUBLIC_ICE;}
 function friendly(err){const map={'browser-incompatible':'This browser doesn’t support peer-to-peer connections. Try Chrome, Safari, Firefox or Edge.',network:'Couldn’t reach the matchmaking server. Check your internet connection.','server-error':'Couldn’t reach the matchmaking server. Try again in a moment.','socket-error':'Couldn’t reach the matchmaking server. Check your internet connection.','peer-unavailable':'No open room with that code. Check the code, and make sure the host’s game is still open.'};
   return new Error(map[err&&err.type]||(err&&err.message)||'Connection failed');}
 async function openPeer(id){const o=peerOptions();if(!o.host){const c=await iceConfig();if(c)o.config=c;}
