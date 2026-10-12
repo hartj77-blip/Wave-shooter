@@ -19,3 +19,7 @@ Controls: WASD to move, Shift to sprint, C to crouch, mouse to aim and shoot, R 
 Everything is in `index.html`: three.js r128 from cdnjs for rendering, procedural textures and synthesized sound, no build step. `peerjs.min.js` is a local copy of PeerJS 1.5 for co-op (the page falls back to jsDelivr if it's missing).
 
 For local co-op testing, run a PeerJS server and open `http://localhost:8000/?peerServer=localhost:9000`.
+
+## Versions
+
+Every release stays playable. `index.html` is the latest build, `versions.html` lists the older ones, and each old build is a frozen copy in `versions/`. Before changing `index.html` for a new release, copy it to `versions/<n>-<name>.html`, add a card for it in `versions.html`, and bump `NET_PREFIX` in the new build so old and new co-op rooms don't mix.
