@@ -24,7 +24,7 @@ For local co-op testing, run a PeerJS server and open `http://localhost:8000/?pe
 
 ### Co-op relay
 
-Players normally connect directly. Some networks, mobile data especially, block that, and joining fails with "Couldn't connect to that room". A relay (TURN) server fixes it. Sign up for the free plan at [metered.ca](https://www.metered.ca/), then put your app name and API key into `RELAY` near the top of the networking code in `index.html`. The key is meant to be used from browsers, and Metered caps usage on the free plan.
+Players normally connect directly. Some networks, mobile data especially, block that, and joining fails with "Couldn't connect to that room". A relay (TURN) server fixes it. By default the game uses free public relays (PeerJS's and Metered's open relay), which need no account but can be busy. For a dependable one, sign up for the free plan at [metered.ca](https://www.metered.ca/), then put your app name and API key into `RELAY` near the top of the networking code in `index.html`. The key is meant to be used from browsers, and Metered caps usage on the free plan.
 
 ## Versions
 
