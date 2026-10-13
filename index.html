@@ -386,6 +386,8 @@ table.sc{border-collapse:collapse;width:100%;font-size:17px;margin:16px 0 22px}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="lib/GLTFLoader.js"></script>
+<script src="lib/SkeletonUtils.js"></script>
 <script>
 (function(){
 'use strict';
@@ -1097,7 +1099,7 @@ function humanKit(o){if(HK.has(o.key))return HK.get(o.key);const bins=new Map();
     if(o.pads)add(K,o.gear,sphere(.066,10,8),0,-.02,.05,0,0,0,[1,1.1,.6]);
     box(K,o.boot,.105*b,.13,.14,0,-.415,-.005,.035);box(K,o.boot,.1*b,.07,.25,0,-.455,.055,.03);box(K,o.boot,.11*b,.026,.28,0,-.49,.05,.008);}
   const out=[...bins.values()].map(v=>({g:v.g,m:v.m,geo:mergeGeos(v.list)}));HK.set(o.key,out);return out;}
-function makeHuman(o){const root=new THREE.Group(),body=new THREE.Group();root.add(body);const hit=[];const P={};const S=o.scale||1;body.scale.setScalar(S);
+function makeHumanProc(o){const root=new THREE.Group(),body=new THREE.Group();root.add(body);const hit=[];const P={};const S=o.scale||1;body.scale.setScalar(S);
   const grp=(name,parent,x,y,z)=>{const g=new THREE.Group();g.position.set(x,y,z);parent.add(g);P[name]=g;return g;};
   const hip=grp('hip',body,0,.98,0),spine=grp('spine',hip,0,.08,0);grp('neck',spine,0,.58,0);const arms=grp('arms',spine,0,.44,0);
   const gun=grp('gun',arms,.07,-.02,.32);
@@ -1112,13 +1114,83 @@ const HUMAN_MATS=(()=>{const skin=std(0xc08f6c,{roughness:.6}),visor=std(0x0d0f1
   const sole=std(0x111111,{roughness:.9}),gunMat=M.darkMetal;
   const ws=cloth(humanTex.camo,0xb4b4a4),wd=cloth(humanTex.camo,0xd2c6ae),el=cloth(humanTex.fab,0x5d6266),ju=cloth(humanTex.fab,0x7d8466);
   return {
-  soldier:{key:'soldier',uni:ws,pants:ws,vest:std(0x4a4a36,{roughness:.85}),gear:std(0x3a3a2b,{roughness:.85}),skin,mask:std(0x22231f,{roughness:.95}),helmet:std(0x55573f,{roughness:.7}),glove:std(0x2a2620,{roughness:.8}),boot:std(0x2a241d,{roughness:.75}),sole,gunMat,poly,visor,pouches:1,pads:1},
-  elite:{key:'elite',uni:el,pants:el,vest:std(0x23262a,{roughness:.8}),gear:std(0x1b1d20,{roughness:.85}),skin,mask:std(0x111214,{roughness:.95}),helmet:std(0x2b2e32,{roughness:.55}),glove:std(0x111214),boot:std(0x121212),sole,gunMat,poly,visor,pouches:1,pads:1,goggles:1},
-  jugg:{key:'jugg',uni:ju,pants:ju,vest:std(0x2c3127,{roughness:.5,metalness:.2}),gear:std(0x24281f),skin:std(0x2c3127),helmet:std(0x2f342a,{roughness:.45,metalness:.3}),glove:std(0x1a1b18),boot:std(0x1a1916),sole,gunMat,poly,visor:new THREE.MeshStandardMaterial({color:col(0x0c1418),emissive:col(0x9a3010),emissiveIntensity:.7,roughness:.15,metalness:.6}),jugg:1,bulk:1.45,lmg:1,pads:1},
-  delta:{key:'delta',uni:wd,pants:wd,vest:std(0x6e6448,{roughness:.85}),gear:std(0x5a523a,{roughness:.85}),skin:std(0xd1a582,{roughness:.6}),helmet:std(0x7a7458,{roughness:.65}),glove:std(0x3a3226),boot:std(0x4a3a2a),sole,gunMat,poly,visor,pouches:1,pads:1,goggles:1}};})();
+  soldier:{key:'soldier',tint:0xa3ab8c,uni:ws,pants:ws,vest:std(0x4a4a36,{roughness:.85}),gear:std(0x3a3a2b,{roughness:.85}),skin,mask:std(0x22231f,{roughness:.95}),helmet:std(0x55573f,{roughness:.7}),glove:std(0x2a2620,{roughness:.8}),boot:std(0x2a241d,{roughness:.75}),sole,gunMat,poly,visor,pouches:1,pads:1},
+  elite:{key:'elite',tint:0x5e6268,uni:el,pants:el,vest:std(0x23262a,{roughness:.8}),gear:std(0x1b1d20,{roughness:.85}),skin,mask:std(0x111214,{roughness:.95}),helmet:std(0x2b2e32,{roughness:.55}),glove:std(0x111214),boot:std(0x121212),sole,gunMat,poly,visor,pouches:1,pads:1,goggles:1},
+  jugg:{key:'jugg',tint:0x7a8068,uni:ju,pants:ju,vest:std(0x2c3127,{roughness:.5,metalness:.2}),gear:std(0x24281f),skin:std(0x2c3127),helmet:std(0x2f342a,{roughness:.45,metalness:.3}),glove:std(0x1a1b18),boot:std(0x1a1916),sole,gunMat,poly,visor:new THREE.MeshStandardMaterial({color:col(0x0c1418),emissive:col(0x9a3010),emissiveIntensity:.7,roughness:.15,metalness:.6}),jugg:1,bulk:1.45,lmg:1,pads:1},
+  delta:{key:'delta',tint:0xd9c49c,uni:wd,pants:wd,vest:std(0x6e6448,{roughness:.85}),gear:std(0x5a523a,{roughness:.85}),skin:std(0xd1a582,{roughness:.6}),helmet:std(0x7a7458,{roughness:.65}),glove:std(0x3a3226),boot:std(0x4a3a2a),sole,gunMat,poly,visor,pouches:1,pads:1,goggles:1}};})();
+// Skinned soldiers: an animated character model (models/soldier.glb, see CREDITS.md) replaces the hand-built rig once it
+// has loaded. Legs and body play the model's idle, walk and run clips; the arms are then bent by two-bone IK so the
+// hands stay on the rifle, which follows the soldier's aim. Invisible capsules on the bones take the bullet hits.
+const SOLDIER={ready:false,gltf:null,mats:new Map(),scale:1};
+if(THREE.GLTFLoader)new THREE.GLTFLoader().load('models/soldier.glb',g=>{
+  g.scene.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(g.scene);SOLDIER.scale=1.78/Math.max(.1,box.max.y-box.min.y);
+  g.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;}});
+  SOLDIER.gltf=g;SOLDIER.ready=true;warmSoldier();},undefined,()=>{});
+// the model's own paint is a bright sci-fi orange, so its texture is mostly desaturated and re-tinted per faction
+function soldierMat(m,o){const k=o.key+m.uuid;if(!SOLDIER.mats.has(k)){const c=m.clone();if(o.tint)c.color.copy(col(o.tint));c.envMapIntensity=.6;
+  if(c.map){c.onBeforeCompile=sh=>{sh.fragmentShader=sh.fragmentShader.replace('#include <map_fragment>',
+    'vec4 texelColor=mapTexelToLinear(texture2D(map,vUv));float lum=dot(texelColor.rgb,vec3(.299,.587,.114));texelColor.rgb=mix(texelColor.rgb,vec3(lum),.85);diffuseColor*=texelColor;');};
+    c.customProgramCacheKey=()=>'soldierDesat';}
+  SOLDIER.mats.set(k,c);}return SOLDIER.mats.get(k);}
+const IKV=[new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()],IKQ=new THREE.Quaternion(),IKQ2=new THREE.Quaternion();
+// rotate a bone (in world space) so the direction from it to `from` turns towards `to`
+function ikTurn(bone,a,from,to){const d0=IKV[4].copy(from).sub(a).normalize(),d1=IKV[5].copy(to).sub(a).normalize();
+  IKQ.setFromUnitVectors(d0,d1);bone.getWorldQuaternion(IKQ2);IKQ2.premultiply(IKQ);bone.parent.getWorldQuaternion(IKQ).invert();bone.quaternion.copy(IKQ.multiply(IKQ2));bone.updateMatrixWorld(true);}
+function ik2(up,lo,hand,target,pole){const S=up.getWorldPosition(IKV[0]),E=lo.getWorldPosition(IKV[1]),W=hand.getWorldPosition(IKV[2]);
+  const a=S.distanceTo(E),b=E.distanceTo(W);const d=IKV[3].copy(target).sub(S);const c=clamp(d.length(),Math.abs(a-b)+1e-3,a+b-1e-3);d.normalize();
+  const ca=clamp((a*a+c*c-b*b)/(2*a*c),-1,1),sa=Math.sqrt(1-ca*ca);const pn=pole.clone().sub(S);pn.addScaledVector(d,-pn.dot(d)).normalize();
+  const E2=S.clone().addScaledVector(d,ca*a).addScaledVector(pn,sa*a);ikTurn(up,S,E,E2);
+  lo.getWorldPosition(E);hand.getWorldPosition(W);ikTurn(lo,E,W,target);}
+function makeSkinnedHuman(o){const root=new THREE.Group(),body=new THREE.Group();root.add(body);const hit=[];const P={};const S=o.scale||1;body.scale.setScalar(S);
+  const model=THREE.SkeletonUtils.clone(SOLDIER.gltf.scene);model.scale.multiplyScalar(SOLDIER.scale);model.rotation.y=Math.PI;body.add(model);
+  model.traverse(m=>{if(m.isMesh){m.material=soldierMat(m.material,o);m.castShadow=true;m.frustumCulled=false;}});
+  const bone=n=>model.getObjectByName('mixamorig'+n)||model.getObjectByName('mixamorig:'+n);
+  for(const n of['Hips','Spine1','Head','LeftArm','LeftForeArm','LeftHand','RightArm','RightForeArm','RightHand','LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot'])P[n]=bone(n);
+  const mixer=new THREE.AnimationMixer(model);const clip=n=>SOLDIER.gltf.animations.find(a=>a.name===n);
+  P.act={idle:mixer.clipAction(clip('Idle')),walk:mixer.clipAction(clip('Walk')),run:mixer.clipAction(clip('Run'))};
+  for(const k in P.act){P.act[k].play();P.act[k].setEffectiveWeight(k==='idle'?1:0);}P.mixer=mixer;P.w={idle:1,walk:0,run:0};
+  // the rifle, shared with the hand-built rig's kit
+  const gun=new THREE.Group();gun.position.set(.07,1.46,.3);body.add(gun);P.gun=gun;
+  for(const k of humanKit(o))if(k.g==='gun'){const m=new THREE.Mesh(k.geo,k.m);m.castShadow=true;gun.add(m);}
+  const mz=new THREE.Object3D();mz.position.set(0,.018,o.lmg?.74:.62);gun.add(mz);P.muzzle=mz;
+  P.grip=new THREE.Object3D();P.grip.position.set(.0,-.07,-.06);gun.add(P.grip);P.fore=new THREE.Object3D();P.fore.position.set(-.03,-.02,o.lmg?.3:.24);gun.add(P.fore);
+  // hit capsules follow the bones; sizes are in metres and undo the model's scale
+  model.updateMatrixWorld(true);const ws=new THREE.Vector3();
+  const hitMat=new THREE.MeshBasicMaterial({visible:false});
+  const cap=(b,child,r,part)=>{if(!b||!child)return;b.getWorldScale(ws);const s=1/ws.x;const L=child.position.length();
+    const m=new THREE.Mesh(cyl(r*s,r*s,L+r*s,6),hitMat);m.position.copy(child.position).multiplyScalar(.5);m.quaternion.setFromUnitVectors(UPV,child.position.clone().normalize());
+    m.userData.part=part;b.add(m);hit.push(m);};
+  cap(P.Hips,bone('Spine1'),.17,'body');cap(P.Spine1,bone('Neck'),.2,'body');cap(bone('Neck'),bone('HeadTop_End'),.12,'head');
+  for(const s of['Left','Right']){cap(bone(s+'Arm'),bone(s+'ForeArm'),.07,'limb');cap(bone(s+'ForeArm'),bone(s+'Hand'),.06,'limb');
+    cap(bone(s+'UpLeg'),bone(s+'Leg'),.09,'limb');cap(bone(s+'Leg'),bone(s+'Foot'),.07,'limb');}
+  return {root,body,hit,P};}
+function makeHuman(o){return SOLDIER.ready?makeSkinnedHuman(o):makeHumanProc(o);}
+// compile the skinned shaders up front so the first soldier of a wave doesn't stall the game
+function warmSoldier(){try{const v=makeSkinnedHuman(HUMAN_MATS.soldier);v.root.position.set(0,-40,0);scene.add(v.root);renderer.compile(scene,camera);scene.remove(v.root);}catch(e){}}
+const PV=new THREE.Vector3(),PV2=new THREE.Vector3();
+function animSkinned(e,dt,speed,aimPitch){const P=e.P;const k=1-Math.exp(-dt*8);
+  const tw=speed<.25?{idle:1,walk:0,run:0}:speed<2.6?{idle:0,walk:1,run:0}:{idle:0,walk:0,run:1};
+  for(const n in P.w){P.w[n]+=(tw[n]-P.w[n])*k;P.act[n].setEffectiveWeight(P.w[n]);}
+  P.act.walk.timeScale=clamp(speed/1.6,.6,1.6);P.act.run.timeScale=clamp(speed/4,.7,1.3);
+  P.mixer.update(dt);
+  e.body.position.y=e.crouch?-.35:0;
+  // rifle shouldered and aimed; recoil pushes it back
+  P.gun.rotation.x=-(aimPitch||0)+(e.recoil||0)*.6;P.gun.position.z=.3-(e.recoil||0)*.25;
+  e.recoil=Math.max(0,(e.recoil||0)-dt*2);
+  e.root.updateMatrixWorld(true);
+  ik2(P.RightArm,P.RightForeArm,P.RightHand,P.grip.getWorldPosition(PV),PV2.set(.6,-.6,-.3).applyQuaternion(e.root.quaternion).add(P.RightArm.getWorldPosition(IKV[0])));
+  ik2(P.LeftArm,P.LeftForeArm,P.LeftHand,P.fore.getWorldPosition(PV),PV2.set(-.4,-.8,.2).applyQuaternion(e.root.quaternion).add(P.LeftArm.getWorldPosition(IKV[0])));
+  const si=Math.floor(P.act.walk.time*2/Math.max(.1,P.act.walk.getClip().duration))+Math.floor(P.act.run.time*2/Math.max(.1,P.act.run.getClip().duration));
+  if(si!==e.si){e.si=si;if(speed>.5&&e.root)sfx.estep(e.root.position.x,e.root.position.z,e.type==='jugg');}}
+function animSkinnedDeath(e,dt){if(e.twist===undefined){e.twist=(Math.random()-.5)*.8;}e.deathT+=dt;const t=e.deathT,P=e.P;
+  const p=Math.min(1,Math.max(0,(t-.05)/.65)),q=p*p*(3-2*p)*p+(1-p)*p*p,f=e.fallDir;
+  if(t<.3)P.mixer.update(dt*.5);
+  e.body.rotation.x=-q*Math.PI/2*.97*f;e.body.rotation.z=q*e.twist*.4;e.body.position.y=q*.13+Math.sin(p*Math.PI)*.05-(1-q)*Math.min(1,t/.2)*.15;
+  P.gun.rotation.x=q*.8;P.gun.position.y=1.46-q*.4;
+  if(t>4)e.root.position.y=-(t-4)*.5;return t>5.5;}
 // Walk: legs swing from the hip with the knee folding on the forward swing, the hips bob and roll and the shoulders
 // counter-rotate. The rifle stays shouldered, bobbing a little with each step.
-function animHuman(e,dt,speed,aimPitch){const P=e.P;e.phase=(e.phase||0)+dt*(speed>.1?speed*2.6:0);const s=Math.sin(e.phase),c=Math.cos(e.phase),k=speed>.1?clamp(speed/3,0,1):0;
+function animHuman(e,dt,speed,aimPitch){if(e.P.mixer)return animSkinned(e,dt,speed,aimPitch);const P=e.P;e.phase=(e.phase||0)+dt*(speed>.1?speed*2.6:0);const s=Math.sin(e.phase),c=Math.cos(e.phase),k=speed>.1?clamp(speed/3,0,1):0;
   e.idle=(e.idle||Math.random()*9)+dt;const br=Math.sin(e.idle*1.7)*.012*(1-k);
   P.thL.rotation.x=-s*.7*k-.04;P.thR.rotation.x=s*.7*k-.04;
   P.knL.rotation.x=(Math.max(0,Math.sin(e.phase-1.3))*1.15+.08)*k+.06+(e.crouch?1.3:0);P.knR.rotation.x=(Math.max(0,Math.sin(e.phase+Math.PI-1.3))*1.15+.08)*k+.06+(e.crouch?1.3:0);
@@ -1129,7 +1201,7 @@ function animHuman(e,dt,speed,aimPitch){const P=e.P;e.phase=(e.phase||0)+dt*(spe
   const si=Math.floor(e.phase/Math.PI);if(si!==e.si){e.si=si;if(k>.2&&e.root)sfx.estep(e.root.position.x,e.root.position.z,e.type==='jugg');}
   e.recoil=Math.max(0,(e.recoil||0)-dt*2);}
 // Death: the knees buckle first, then the body topples with a twist and the limbs go slack.
-function animHumanDeath(e,dt){if(e.twist===undefined){e.twist=(Math.random()-.5)*.8;e.splay=Math.random()*.4;}e.deathT+=dt;const t=e.deathT,P=e.P;
+function animHumanDeath(e,dt){if(e.P.mixer)return animSkinnedDeath(e,dt);if(e.twist===undefined){e.twist=(Math.random()-.5)*.8;e.splay=Math.random()*.4;}e.deathT+=dt;const t=e.deathT,P=e.P;
   const buck=Math.min(1,t/.22),p=Math.min(1,Math.max(0,(t-.08)/.6)),q=p*p*(3-2*p)*p+(1-p)*p*p;const f=e.fallDir;
   e.body.rotation.x=-q*Math.PI/2*.97*f;e.body.rotation.z=q*e.twist*.4;e.body.position.y=q*.12+Math.sin(p*Math.PI)*.05;
   P.hip.position.y=.97-buck*(1-q)*.22;
@@ -1899,7 +1971,7 @@ function updateWorld(dt){
    their own tab; friends connect straight to that tab over WebRTC, found through the free PeerJS cloud.
    Each player moves and aims locally and reports hits; the host keeps the cash and sends the world back
    about 15 times a second. Voice chat connects every player in voice directly to every other. */
-const NET_PREFIX='holdout-v4-',CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ',MAX_PLAYERS=4;
+const NET_PREFIX='holdout-v5-',CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ',MAX_PLAYERS=4;
 let net=null,myPid='solo';
 const remotes=new Map();   // host only: pid -> guest record
 let roster=[];             // everyone in the room: {pid,name,x,z,yaw,st,cash,voice,muted,peerId,kills,inGame,crouch}
