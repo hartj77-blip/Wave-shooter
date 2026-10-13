@@ -3,8 +3,12 @@
 **Holdout** is a browser wave-survival shooter in the style of Modern Warfare 3's Survival mode. Hold a village square against waves of soldiers, attack dogs, juggernauts and helicopters. Earn cash for kills and survived waves, then spend it at three armories:
 
 - **Weapons:** pistols, SMG, assault rifles, shotgun, sniper rifle, LMG and an RPG, plus red dot sights, foregrips and extended mags.
-- **Equipment:** frag grenades, body armor, a self-revive kit and a sentry gun.
+- **Equipment:** frag grenades, smoke grenades, flashbangs, firebombs, body armor, a helmet, a self-revive kit and a sentry gun.
 - **Air support:** a precision airstrike, a two-man Delta squad and an attack helicopter.
+
+Number keys buy at an armory, "Buy again" repeats your last order there, and "Refill all ammo" restocks every gun at once.
+
+Pick the weather and time of day on the title screen: clear day, dusk, night (your gun gets a flashlight), rain, thick fog, or a mix that changes every three waves. Enemies see less far in the dark, rain and fog. Settings (title screen or pause menu) cover mouse and touch sensitivity, field of view, game and voice volume, graphics quality and an FPS counter, and are saved in the browser.
 
 Play solo, or host a co-op room for up to four players with voice chat. Co-op runs peer to peer over WebRTC (PeerJS), so there's no server to run: friends open the page, type the 4-letter room code and join.
 
@@ -12,7 +16,7 @@ Play solo, or host a co-op room for up to four players with voice chat. Co-op ru
 
 Open `index.html` in a browser, or host the repo on GitHub Pages (Settings → Pages → Deploy from a branch → `main` / root).
 
-Controls: WASD to move, Shift to sprint, C to crouch, mouse to aim and shoot, R to reload, G for a grenade, V to knife, F to use an armory or hold to revive a squadmate, 4 to deploy an airstrike or sentry, N to start the next wave early, M for voice chat. Phones and tablets get on-screen controls.
+Controls: WASD to move, Shift to sprint, C to crouch, mouse to aim and shoot, R to reload, G for a frag grenade, X for a smoke, flashbang or firebomb, V to knife, F to use an armory or hold to revive a squadmate, 4 to deploy an airstrike or sentry, N to start the next wave early, M for voice chat. Phones and tablets get on-screen controls.
 
  https://hartj77-blip.github.io/Wave-shooter/
 
