@@ -2387,7 +2387,11 @@ function syncVoice(){if(!net)return;const want=new Set();
   if(voice.on)for(const p of currentRoster()){if(p.pid===myPid||!p.voice||!p.peerId)continue;want.add(p.pid);
     if(!voice.calls.has(p.pid)&&net.peer.id<p.peerId){try{wireCall(net.peer.call(p.peerId,voice.local,{metadata:{kind:'voice',pid:myPid}}),p.pid);}catch(e){}}}
   for(const pid of [...voice.calls.keys()])if(!want.has(pid))voiceDrop(pid);}
-function voiceIncoming(call){if(!voice.on||!call.metadata||call.metadata.kind!=='voice'){try{call.close();}catch(e){}return;}call.answer(voice.local);wireCall(call,String(call.metadata.pid));}
+// Only answer players who are in this room: the caller's claimed player id must match the connection it actually called
+// from (call.peer comes from the matchmaking server, not from the caller), so outsiders who guess a room code can't listen in.
+function voiceIncoming(call){const m=call.metadata,pid=m&&String(m.pid);
+  const member=!!net&&pid!==myPid&&currentRoster().some(p=>p.pid===pid&&p.peerId&&p.peerId===call.peer);
+  if(!voice.on||!m||m.kind!=='voice'||!member){try{call.close();}catch(e){}return;}call.answer(voice.local);wireCall(call,pid);}
 function wireCall(call,pid){const old=voice.calls.get(pid);if(old&&old!==call){try{old.close();}catch(e){}}voice.calls.set(pid,call);
   call.on('stream',st=>playRemote(pid,st));const end=()=>{if(voice.calls.get(pid)===call){voice.calls.delete(pid);stopRemote(pid);}};call.on('close',end);call.on('error',end);}
 function voiceDrop(pid){const c=voice.calls.get(pid);voice.calls.delete(pid);if(c){try{c.close();}catch(e){}}stopRemote(pid);}
