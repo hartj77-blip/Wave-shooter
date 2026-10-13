@@ -1,0 +1,5 @@
+# download caches for tools/real*.py
+.texcache/
+.skycache/
+.modelcache/
+.soundcache/
