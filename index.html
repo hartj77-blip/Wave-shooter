@@ -437,7 +437,7 @@ const MAX_ANISO=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 const col=h=>new THREE.Color(h).convertSRGBToLinear();
 const std=(h,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:col(h),roughness:.85,metalness:0},o));
 const scene=new THREE.Scene();
-const HORIZON=0xcdd3d4;
+const HORIZON=0xaeb3b6;
 scene.fog=new THREE.FogExp2(col(HORIZON),.0068);
 const camera=new THREE.PerspectiveCamera(75,1,.05,400);
 camera.rotation.order='YXZ';
@@ -446,8 +446,8 @@ const viewCam=new THREE.PerspectiveCamera(56,1,.01,10);
 viewScene.add(new THREE.HemisphereLight(col(0xcfe0ff),col(0x5a4a38),.35));
 {const s=new THREE.DirectionalLight(col(0xffe3bd),2.2);s.position.set(-.6,1,.5);viewScene.add(s);}
 
-// late-afternoon sun; most fill light comes from the sky through image-based lighting
-const SUN=new THREE.Vector3(-.55,.62,.42).normalize();
+// afternoon sun, 38 degrees up to match the photographed sky; most fill light comes from the sky through image-based lighting
+const SUN=new THREE.Vector3(-.55,.537,.42).normalize();
 scene.add(new THREE.HemisphereLight(col(0xbfd6ff),col(0x6a5844),.22));
 const sun=new THREE.DirectionalLight(col(0xffe2b8),3.1);
 sun.position.copy(SUN).multiplyScalar(90);sun.castShadow=true;
@@ -457,15 +457,22 @@ sun.shadow.bias=-.0003;sun.shadow.normalBias=.025;
 scene.add(sun);scene.add(sun.target);
 const muzzleLight=new THREE.PointLight(col(0xffc070),0,10,2);scene.add(muzzleLight);
 
-// sky: scattering gradient, a sun with a wide halo and drifting fractal clouds; follows the camera
+// sky: a photographed HDR sky (tex/v6/sky.jpg, a CC0 Poly Haven HDRI made by tools/realsky.py) stored with the reversible
+// curve v = L/(L+K). Until it loads, or if it fails, a procedural sky stands in: scattering gradient, sun halo, fractal clouds.
+const SKY_K=.5;
 const skyMat=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
-  uniforms:{top:{value:col(0x3d78c4)},mid:{value:col(0xa9c6e2)},hor:{value:col(HORIZON)},sunDir:{value:SUN},time:{value:0},sunK:{value:1}},
+  uniforms:{top:{value:col(0x3d78c4)},mid:{value:col(0xa9c6e2)},hor:{value:col(HORIZON)},sunDir:{value:SUN},time:{value:0},sunK:{value:1},
+    tSky:{value:null},hasSky:{value:0},cap:{value:1e4}},
   vertexShader:'varying vec3 vP;void main(){vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-  fragmentShader:`uniform vec3 top,mid,hor,sunDir;uniform float time,sunK;varying vec3 vP;
+  fragmentShader:`uniform vec3 top,mid,hor,sunDir;uniform float time,sunK,hasSky,cap;uniform sampler2D tSky;varying vec3 vP;
     float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
     float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+1.),f.x),f.y);}
     float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
     void main(){vec3 d=normalize(vP);float h=d.y;
+      if(hasSky>.5){float e=degrees(asin(clamp(h,-1.,1.)));vec2 uv=vec2(atan(d.z,d.x)/6.2831853+.5,clamp((e+11.25)/101.25,.002,.998));
+        vec3 v=min(texture2D(tSky,uv).rgb,vec3(.996));gl_FragColor=vec4(min(${SKY_K}*v/(1.-v),vec3(cap)),1.);
+        #include <encodings_fragment>
+        return;}
       vec3 c=h>0.?mix(mix(hor,mid,smoothstep(0.,.22,h)),top,smoothstep(.15,.85,h)):hor*mix(.8,1.,smoothstep(-.2,0.,h));
       float s=max(dot(d,sunDir),0.);
       c+=vec3(1.,.8,.55)*(pow(s,8.)*.25+pow(s,64.)*.35)*sunK;
@@ -482,11 +489,12 @@ const sky=new THREE.Mesh(new THREE.SphereGeometry(300,48,24),skyMat);
 sky.renderOrder=-1;scene.add(sky);
 
 /* ---------- textures ---------- */
-// Photographic-style surfaces made offline (tex/*.jpg): colour, normal, and roughness in green.
+// Photo-scanned CC0 surfaces from Poly Haven and ambientCG (tex/v6/, built by tools/realtex.py, see CREDITS.md):
+// colour _c, normal _n, and _r with ambient occlusion in red and roughness in green. macro.jpg is still generated.
 const texLoader=new THREE.TextureLoader();
-function loadTex(file,srgb){const t=texLoader.load('tex/'+file);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=MAX_ANISO;if(srgb)t.encoding=THREE.sRGBEncoding;return t;}
-function pbr(name,o={}){const {ns,...rest}=o;const m=new THREE.MeshStandardMaterial(Object.assign({map:loadTex(name+'_c.jpg',true),normalMap:loadTex(name+'_n.jpg'),roughnessMap:loadTex(name+'_r.jpg'),roughness:1,metalness:0},rest));
-  if(ns)m.normalScale.set(ns,ns);return m;}
+function loadTex(file,srgb){const t=texLoader.load('tex/'+(file==='macro.jpg'?'':'v6/')+file);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=MAX_ANISO;if(srgb)t.encoding=THREE.sRGBEncoding;return t;}
+function pbr(name,o={}){const {ns,rep,...rest}=o;const m=new THREE.MeshStandardMaterial(Object.assign({map:loadTex(name+'_c.jpg',true),normalMap:loadTex(name+'_n.jpg'),roughnessMap:loadTex(name+'_r.jpg'),roughness:1,metalness:0},rest));
+  if(ns)m.normalScale.set(ns,ns);if(rep)m.map.repeat.set(...rep);return m;}
 function canvasTex(w,h,draw,srgb=true){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');draw(g,w,h);
   const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=MAX_ANISO;if(srgb)t.encoding=THREE.sRGBEncoding;return t;}
 function speckle(g,w,h,n,cols,a,sz=3,seed=1){const r=rng(seed*7+w+n);for(let i=0;i<n;i++){g.fillStyle=cols[i%cols.length];g.globalAlpha=r()*a;const s=r()*sz+.5;g.fillRect(r()*w,r()*h,s,s);}g.globalAlpha=1;}
@@ -547,11 +555,12 @@ function mesh(geo,mat,x=0,y=0,z=0,parent=null,o={}){const m=new THREE.Mesh(geo,m
 
 /* ---------- materials ---------- */
 const M={
-  cobble:weather(pbr('cobble',{ns:1.4,envMapIntensity:.6}),'ground'),
-  stone:weather(pbr('stone'),'wall'),
-  roof:pbr('roof',{ns:1.2}),
-  wood:pbr('wood'),
-  darkWood:pbr('wood',{color:col(0x6a5a4a)}),
+  // rep = the old generated tile size over the scan's real size, so the existing UV layouts keep real-world scale
+  cobble:weather(pbr('cobble',{ns:1.2,rep:[3.2/2.4,3.2/2.4],envMapIntensity:.6}),'ground'),
+  stone:weather(pbr('stone',{rep:[2.5/3,2.5/3]}),'wall'),
+  roof:pbr('roof',{ns:1.1,rep:[2.2/2.5,2.2/2.5]}),
+  wood:pbr('wood',{rep:[.6,.6]}),
+  darkWood:pbr('wood',{rep:[.6,.6],color:col(0x8a7a6a)}),
   glass:new THREE.MeshStandardMaterial({color:col(0x10161c),roughness:.05,metalness:.9,envMapIntensity:1.5}),
   frame:std(0xeee8da,{roughness:.6}),
   metal:pbr('metal',{color:col(0x5a5e62),metalness:.5}),
@@ -559,12 +568,12 @@ const M={
   rubber:std(0x1b1c1e,{roughness:.9}),
   sand:std(0x9c8a64,{roughness:1}),
   water:new THREE.MeshStandardMaterial({color:col(0x2d555c),roughness:.04,metalness:.4,transparent:true,opacity:.88,envMapIntensity:1.3}),
-  leaf:std(0x56703a,{roughness:.85}),leaf2:std(0x6f8a45,{roughness:.85}),bark:pbr('bark'),
+  leaf:std(0x56703a,{roughness:.85}),leaf2:std(0x6f8a45,{roughness:.85}),bark:pbr('bark',{rep:[1,2]}),
   concrete:pbr('concrete'),burnt:std(0x2b2724,{roughness:.9,metalness:.2}),
   cloth:new THREE.MeshStandardMaterial({map:texCloth,roughness:.9,side:THREE.DoubleSide}),
   cloth2:new THREE.MeshStandardMaterial({map:texCloth2,roughness:.9,side:THREE.DoubleSide})
 };
-const plasterMats=[0xe8d9b8,0xd9b58f,0xc9cfc0,0xe3c9a2,0xbfa58c,0xd8c7a6,0xcdb7a0,0xa9b5a5].map(c=>weather(pbr('plaster',{color:col(c),ns:.9}),'wall'));
+const plasterMats=[0xe8d9b8,0xd9b58f,0xc9cfc0,0xe3c9a2,0xbfa58c,0xd8c7a6,0xcdb7a0,0xa9b5a5].map(c=>weather(pbr('plaster',{color:col(c),ns:.9,rep:[2,2]}),'wall'));
 const shutterCols=[0x3f6a52,0x4b6b86,0x7a4a32,0x5d7a8c,0x6e7650,0x8a3a2e];
 
 /* ---------- level ---------- */
@@ -614,7 +623,7 @@ const texLouvre=canvasTex(128,256,(g,w,h)=>{g.fillStyle='#fff';g.fillRect(0,0,w,
   g.fillStyle='rgba(0,0,0,.4)';g.fillRect(8,h/2-3,w-16,6);speckle(g,w,h,900,['#000','#fff'],.12,2,17);});
 const texDoor=canvasTex(128,256,(g,w,h)=>{g.fillStyle='#fff';g.fillRect(0,0,w,h);const pan=(x,y,pw,ph)=>{g.fillStyle='rgba(0,0,0,.18)';g.fillRect(x,y,pw,ph);g.strokeStyle='rgba(0,0,0,.5)';g.lineWidth=3;g.strokeRect(x,y,pw,ph);g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=2;g.strokeRect(x+5,y+5,pw-10,ph-10);};
   pan(12,14,46,96);pan(70,14,46,96);pan(12,128,46,112);pan(70,128,46,112);g.fillStyle='#c8a050';g.beginPath();g.arc(104,124,4,0,TAU);g.fill();speckle(g,w,h,1400,['#000','#fff'],.12,2,18);});
-const winMats={trim:weather(pbr('stone',{color:col(0xe4dccb)}),'wall'),sash:std(0xe9e6dc,{roughness:.55}),
+const winMats={trim:weather(pbr('stone',{color:col(0xe4dccb),rep:[2.5/3,2.5/3]}),'wall'),sash:std(0xe9e6dc,{roughness:.55}),
   dark:new THREE.MeshStandardMaterial({color:col(0x0a0b0c),roughness:1}),
   shutter:new THREE.MeshStandardMaterial({map:texLouvre,roughness:.65}),door:new THREE.MeshStandardMaterial({map:texDoor,roughness:.6})};
 winMats.glass=new THREE.MeshStandardMaterial({color:col(0x6a7680),roughness:.05,metalness:1,envMapIntensity:1.3,transparent:true,opacity:.9});
@@ -811,7 +820,7 @@ const bagGeo=cached('bag',()=>{const g=new THREE.SphereGeometry(.5,20,12);const 
   for(let i=0;i<p.count;i++){const x=p.getX(i)*2,y=p.getY(i)*2,z=p.getZ(i)*2;const sq=v=>Math.sign(v)*Math.pow(Math.abs(v),.55);
     const pinch=1-.35*Math.pow(Math.abs(x),6);p.setXYZ(i,sq(x)*.5,y*.21*(y<0?.7:1)*pinch,sq(z)*.3*pinch);}
   g.computeVertexNormals();setUV(g,2,1);return g;});
-const bagMat=new THREE.MeshStandardMaterial({map:loadTex('burlap_c.jpg',true),normalMap:loadTex('burlap_n.jpg'),color:col(0xa89c86),roughness:1,envMapIntensity:.5});
+const bagMat=new THREE.MeshStandardMaterial({map:loadTex('burlap_c.jpg',true),normalMap:loadTex('burlap_n.jpg'),color:col(0xa49d90),roughness:1,envMapIntensity:.5});bagMat.map.repeat.set(1.85,1.85);
 function sandbags(x,z,ry,n=5,rows=3,arc=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);const bags=[];
   for(let r=0;r<rows;r++)for(let i=0;i<n-(r%2);i++){const t=(i+(r%2)*.5-(n-1)/2);const a=t*arc;const px=Math.sin(a)*(arc?1/arc:0)||t*.92,pz=arc?(1-Math.cos(a))/arc:0;
     const b=mesh(bagGeo,bagMat,arc?Math.sin(a)/arc*.92:t*.92,.2+r*.36,arc?(1-Math.cos(a))/arc*.92:0,g,{ry:-a+(Math.random()-.5)*.15});solids.push(b);bags.push(b);}
@@ -820,11 +829,36 @@ function sandbags(x,z,ry,n=5,rows=3,arc=0){const g=new THREE.Group();g.position.
   const w=n*.46+.3;const c=Math.abs(Math.cos(ry)),s=Math.abs(Math.sin(ry));addCol(x-(w*c+.45*s),x+(w*c+.45*s),z-(w*s+.45*c),z+(w*s+.45*c),{tall:false});}
 sandbags(-7,-6,0,6,3,.25);sandbags(7,6,Math.PI,6,3,.25);sandbags(-12,12,Math.PI/4,5,3);sandbags(12,-13,Math.PI/4,5,3);
 // crates and barrels
-function crate(x,z,s=1.1,ry=0,y=0){const m=mesh(rbox(s,s,s,.04),M.wood,x,y+s/2,z,scene,{ry});solids.push(m);if(!y){const c=Math.abs(Math.cos(ry)),sn=Math.abs(Math.sin(ry)),h=s/2*(c+sn);addCol(x-h,x+h,z-h,z+h,{tall:false});}return m;}
-function barrel(x,z,c){const m=mesh(cyl(.4,.4,1.15,18),std(c||0x3f5a3a,{roughness:.5,metalness:.4}),x,.58,z,scene);solids.push(m);
-  mesh(cyl(.42,.42,.06,18),M.darkMetal,x,.3,z,scene);mesh(cyl(.42,.42,.06,18),M.darkMetal,x,.86,z,scene);addCircle(x,z,.45);}
+// Real props (models/props/*.glb: CC0 Poly Haven models packed by tools/realmodels.py, see CREDITS.md). The simple shapes
+// built first stay on as bullet and collision proxies; once a model loads they're hidden and the model stands in their place.
+// If a model fails to load, the shapes simply stay visible.
+const propSrc={};
+function loadProp(name,cb){if(!THREE.GLTFLoader)return;
+  const p=propSrc[name]||(propSrc[name]=new Promise((res,rej)=>new THREE.GLTFLoader().load('models/props/'+name+'.glb',g=>{
+    g.scene.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;o.material.envMapIntensity=.75;}});res(g.scene);},undefined,rej)));
+  p.then(cb,()=>{});}
+function prop(name,x,y,z,ry=0,s=1,hide=[]){loadProp(name,src=>{const m=src.clone();m.position.set(x,y,z);m.rotation.y=ry;
+  Array.isArray(s)?m.scale.set(...s):m.scale.setScalar(s);scene.add(m);for(const h of hide)h.visible=false;});}
+// a crate is a 2 x 2 stack of real crates squeezed slightly to fill the same cube
+function crate(x,z,s=1.1,ry=0,y=0){const m=mesh(rbox(s,s,s,.04),M.wood,x,y+s/2,z,scene,{ry});solids.push(m);if(!y){const c=Math.abs(Math.cos(ry)),sn=Math.abs(Math.sin(ry)),h=s/2*(c+sn);addCol(x-h,x+h,z-h,z+h,{tall:false});}
+  loadProp('wooden_crate_02',src=>{const b=new THREE.Box3().setFromObject(src),W=b.max.x-b.min.x,H=b.max.y-b.min.y,L=b.max.z-b.min.z;
+    const g=new THREE.Group();g.position.set(x,y,z);g.rotation.y=ry;g.scale.set(s/(2*W),s/(2*H),s/L);
+    for(let i=0;i<4;i++){const c=src.clone();c.position.set(((i&1)-.5)*W,(i>>1)*H-b.min.y,0);if((x*7+z*3+i)%3<1)c.rotation.y=Math.PI;g.add(c);}
+    scene.add(g);m.visible=false;});
+  return m;}
+// oil drums at real size: the red one is Barrel_01, the rest the blue barrel_03
+function barrel(x,z,c){const m=mesh(cyl(.3,.3,.9,18),std(c||0x3f5a3a,{roughness:.5,metalness:.4}),x,.45,z,scene);solids.push(m);
+  const r1=mesh(cyl(.31,.31,.05,18),M.darkMetal,x,.24,z,scene),r2=mesh(cyl(.31,.31,.05,18),M.darkMetal,x,.66,z,scene);addCircle(x,z,.34);
+  prop(c===0x8a4a2a?'barrel_01':'barrel_03',x,0,z,(x*3.1+z)%TAU,1,[m,r1,r2]);}
 crate(19,-21,1.2,.2);crate(20.3,-21,1.1,-.1);crate(19.6,-21,1,.4,1.2);crate(-20,20,1.2,.3);crate(-21,18.8,1,0);
 crate(21,20.5,1.2,.1);crate(-21.2,-20,1.1,.5);barrel(-20,21.3,0x8a4a2a);barrel(-18.9,21.6);barrel(21.5,18.5,0x37506a);barrel(-21.5,-18.6);
+// smaller real props: fuel cans by the drums, a stack of old tyres by the crates, ammo boxes behind the sandbag nests
+for(const [x,z,r] of [[-19.4,20.3,.4],[20.6,18.2,2.1],[-20.6,-18.2,1.2]]){prop('metal_jerrycan_green',x,0,z,r);addCircle(x,z,.22);}
+// the tyre model stands on its tread with the axle along z: lay three flat in a stack, lean one against the wall
+function tyre(x,y,z,rx,ry){loadProp('old_tyre',src=>{const m=src.clone();m.position.set(x,y,z);m.rotation.set(rx,ry,0,'YXZ');scene.add(m);});}
+for(const [x,z] of [[18.6,-19.4],[-19.4,-21.6]]){for(let i=0;i<3;i++)tyre(x+(i%2)*.04,.083+i*.166,z,Math.PI/2,i*.7);addCircle(x,z,.32);}
+tyre(21.7,.3,-19.6,-.2,Math.PI/2+.3);addCircle(21.7,-19.6,.3);
+for(const [x,z,r] of [[-7.4,-5.2,.3],[-6.6,-5.25,-.2],[7.3,5.2,2.9],[11.5,-12.5,.9],[-11.5,11.5,4]])prop('ammo_box',x,0,z,r);
 // benches
 function bench(x,z,ry){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);mesh(rbox(1.8,.08,.45,.02),M.wood,0,.45,0,g);mesh(rbox(1.8,.35,.06,.02),M.wood,0,.7,-.22,g);
   for(const s of[-.75,.75])mesh(rbox(.06,.45,.45,.01),M.darkMetal,s,.22,0,g);}
@@ -894,13 +928,26 @@ function collide(e,r,isPlayer){for(let pass=0;pass<2;pass++)for(const c of colli
     else{const l=e.x-c.x0,rr=c.x1-e.x,b=e.z-c.z0,f=c.z1-e.z,m=Math.min(l,rr,b,f);if(m===l)e.x=c.x0-r;else if(m===rr)e.x=c.x1+r;else if(m===b)e.z=c.z0-r;else e.z=c.z1+r;}}}
   if(isPlayer){e.x=clamp(e.x,-31,31);e.z=clamp(e.z,-31,31);}}
 
-/* ---------- audio (all synthesized) ---------- */
+/* ---------- audio: recorded gunfire, blasts and impacts, everything else synthesized ---------- */
 let AC=null,master=null,noiseBuf=null,verb=null;
 function audioInit(){if(AC){if(AC.state==='suspended')AC.resume();return;}try{AC=new(window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=.5;
   const comp=AC.createDynamicsCompressor();master.connect(comp);comp.connect(AC.destination);
   noiseBuf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
   // gunfire and blasts also feed a convolution reverb: a few early slaps off the house fronts, then a decaying street tail
-  verb=AC.createGain();verb.connect(master);const cv=AC.createConvolver();cv.buffer=streetIR();const wet=AC.createGain();wet.gain.value=.5;verb.connect(cv);cv.connect(wet);wet.connect(master);}catch(e){AC=null;}}
+  verb=AC.createGain();verb.connect(master);const cv=AC.createConvolver();cv.buffer=streetIR();const wet=AC.createGain();wet.gain.value=.5;verb.connect(cv);cv.connect(wet);wet.connect(master);}catch(e){AC=null;}
+  if(AC)loadSounds();}
+// Recordings (sounds/*.mp3: CC0 Freesound recordings cut by tools/realsound.py, see CREDITS.md). They load once audio
+// starts; until one has loaded, or if it fails to, the synthesized sound below plays instead.
+const SND={};
+function loadSounds(){for(const n of['pistol','shotgun','rifle','ak','sniper','launcher','blast','hit_metal1','hit_metal2','hit_stone1','hit_stone2','hit_wood1','hit_wood2','hit_dirt'])
+  fetch('sounds/'+n+'.mp3').then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();}).then(b=>new Promise((res,rej)=>AC.decodeAudioData(b,res,rej))).then(b=>{SND[n]=b;},()=>{});}
+// play a recording; false if it isn't loaded, so the caller can fall back to synthesis
+function sample(n,vol,o={}){const b=SND[n];if(!AC||!b)return false;if(vol<.003)return true;const t=AC.currentTime+(o.delay||0);
+  const s=AC.createBufferSource();s.buffer=b;s.playbackRate.value=(o.rate||1)*rand(.96,1.04);let node=s;
+  if(o.lp){const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=o.lp;f.Q.value=.5;node.connect(f);node=f;}
+  const g=AC.createGain();g.gain.value=vol;node.connect(g);g.connect(o.out||master);s.start(t);return true;}
+// which recording each gun uses, and the playback rate that shifts it towards that gun's weight
+const GUN_REC={pistol:['pistol',1],smg:['rifle',1.12],rifle:['rifle',1],ak:['ak',1],shotgun:['shotgun',1],sniper:['sniper',1],lmg:['ak',.9]};
 function streetIR(){const sr=AC.sampleRate,L=Math.floor(sr*2.4),b=AC.createBuffer(2,L,sr);
   for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);let lp=0;
     for(let i=0;i<L;i++){const t=i/sr,a=Math.min(1,t/.02)*Math.exp(-t/.5),k=Math.min(.95,.25+t*.5);lp=lp*k+(Math.random()*2-1)*(1-k);d[i]=lp*a*.9;}
@@ -913,10 +960,14 @@ function tone(freq,dur,type,vol,slide,delay=0,out=master){if(!AC||vol<.003)retur
   const g=AC.createGain();env(g,t,.006,vol,dur);o.connect(g);g.connect(out);o.start(t);o.stop(t+dur+.05);return o;}
 const distVol=(x,z,R=60)=>clamp(1-Math.hypot(x-camera.position.x,z-camera.position.z)/R,0,1);
 const sfx={
-  shot(def){if(!AC)return;const s=def.snd;if(s.rpg){noise(.5,'lowpass',900,.6,.6);noise(.9,'bandpass',500,.8,.35,.05);return;}
-    const o=verb||master;noise(.025,'highpass',4200,.7,.32,0,o);noise(.08+.05*s.b,'lowpass',s.f*2.4,.7,.5,0,o);noise(.22*s.b,'lowpass',s.f*.45,.5,.34,0,o);tone(95,.12*s.b,'sine',.45,38,0,o);
+  shot(def){if(!AC)return;const s=def.snd,o=verb||master;
+    if(s.rpg){if(sample('launcher',.85,{out:o}))return;noise(.5,'lowpass',900,.6,.6);noise(.9,'bandpass',500,.8,.35,.05);return;}
+    const rec=GUN_REC[def.model];
+    if(rec&&sample(rec[0],.8,{out:o,rate:rec[1]*(def.big?.82:1)})){tone(90,.12*s.b,'sine',.22,38,0,o);noise(.03,'bandpass',3200,5,.05,.04);return;}
+    noise(.025,'highpass',4200,.7,.32,0,o);noise(.08+.05*s.b,'lowpass',s.f*2.4,.7,.5,0,o);noise(.22*s.b,'lowpass',s.f*.45,.5,.34,0,o);tone(95,.12*s.b,'sine',.45,38,0,o);
     noise(.4,'bandpass',300,.6,.08*s.b,.06,o);noise(.03,'bandpass',3200,5,.06,.04);},
   enemyShot(x,z,heavy){const v=distVol(x,z,70);if(v<.02)return;const dl=Math.hypot(x-camera.position.x,z-camera.position.z)/343,o=verb||master;
+    if(sample(heavy?'ak':'rifle',.3*v*v+.03,{delay:dl,out:o,rate:heavy?.92:1,lp:1800+9000*v}))return;
     noise(.07,'lowpass',(heavy?1400:2000)*(.45+.55*v),.8,.32*v*v+.03,dl,o);noise(.2,'lowpass',400,.5,.12*v,dl,o);},
   crack(){noise(.04,'highpass',3500,1,.18);noise(.14,'bandpass',rand(1100,1900),2.5,.08,.01);suppress=Math.min(1,suppress+.3);},
   empty(){tone(1800,.03,'square',.08);},
@@ -928,8 +979,11 @@ const sfx={
   deny(){tone(180,.18,'square',.12);},
   hurt(){noise(.12,'lowpass',700,.8,.4);tone(80,.2,'sine',.5,45);},
   boom(x,z,big){const v=Math.max(.15,distVol(x,z,110)),dl=Math.hypot(x-camera.position.x,z-camera.position.z)/343,o=verb||master;
+    if(sample('blast',.95*v,{delay:dl,out:o,rate:big?.82:1,lp:500+9000*v*v})){tone(48,1.1,'sine',.5*v,24,dl,o);return;}
     noise(1.6*(big?1.3:1),'lowpass',260,.6,.9*v,dl,o);noise(.35,'lowpass',1600*(.4+.6*v),.5,.55*v,dl,o);tone(48,1.1,'sine',.8*v,24,dl,o);noise(2.5,'lowpass',500,.4,.12*v,dl+.3);},
   impact(s,x,z){const v=distVol(x,z,40);if(v<.05||!AC)return;const q=v*v;
+    const r=Math.random()<.5?1:2,rec=s==='metal'?'hit_metal'+r:s==='wood'?'hit_wood'+r:s==='dirt'||s==='sand'?'hit_dirt':'hit_stone'+r;
+    if(sample(rec,(s==='metal'?.16:.22)*q,{rate:rand(.9,1.15)}))return;
     if(s==='metal'){tone(rand(2400,4200),.12,'sine',.07*q,null);noise(.03,'highpass',3000,1,.1*q);}
     else if(s==='wood')noise(.06,'bandpass',rand(700,1000),2,.14*q);
     else if(s==='dirt'||s==='sand')noise(.08,'lowpass',500,.7,.12*q);
@@ -1286,6 +1340,13 @@ const vmKnife=new THREE.Group();viewScene.add(vmKnife);vmKnife.visible=false;
 const vmNade=new THREE.Group();viewScene.add(vmNade);vmNade.visible=false;
 {mesh(sphere(.04,14,10),vmMats.green,0,0,0,vmNade,{s:[1,1.2,1]});mesh(cyl(.015,.015,.03,8),vmMats.gun,0,.05,0,vmNade);mesh(sphere(.05,12,10),vmMats.glove,.02,-.03,.03,vmNade,{s:[1,.9,1.3]});}
 let gunMesh=null,flashSprite=null;
+// First-person pistol: the CC0 Poly Haven "service_pistol" (models/props/service_pistol.glb). The file holds two copies of
+// the gun plus loose magazines; only the first gun's frame, slide, hammer and trigger are kept. Muzzle along +x in the file.
+let realPistol=null;const PISTOL_AT={y:-.036,z:.05};
+loadProp('service_pistol',src=>{const g=new THREE.Group();
+  for(const n of['pistol_a','slide_a','hammer_a','trigger_a']){const o=src.getObjectByName('service_pistol_'+n);if(o)g.add(o.clone());}
+  g.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=false;o.material.envMapIntensity=1;}});
+  realPistol=g;const w=curW();if(w&&w.def.model==='pistol'&&!w.def.big)rebuildGun();});
 // Side silhouettes, extruded to thickness: [z,y] points with -z towards the muzzle. Cached per shape.
 function sideGeo(pts,w,bev=.003){return cached('sg'+w+bev+pts.join(';'),()=>{const s=new THREE.Shape();s.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)s.lineTo(pts[i][0],pts[i][1]);
   const g=new THREE.ExtrudeGeometry(s,{depth:Math.max(.001,w-2*bev),bevelEnabled:bev>0,bevelThickness:bev,bevelSize:bev,bevelSegments:2,curveSegments:4});
@@ -1303,7 +1364,7 @@ function buildGun(w){const d=w.def,t=d.model,g=new THREE.Group();const G=vmMats.
     B(.03,.008,.012,0,base,z,G,.002);for(const s of[-1,1])B(.004,.03,.01,s*.012,.072,z,G,.001);};
   const ironRear=(z)=>{mesh(cached('tor-iron',()=>new THREE.TorusGeometry(.011,.003,8,24)),G,0,.085,z,g,o);B(.03,.016,.016,0,.068,z,G,.003);B(.008,.01,.012,0,.075,z,G,.001);};
   const mag=(pts,wd,m)=>{const ext=w.att.ext?1.45:1;const mm=P(pts,wd,m);if(ext>1){mm.scale.y=ext;const top=Math.max(...pts.map(p=>p[1]));mm.position.y=top*(1-ext);}return mm;};
-  if(t==='pistol'){const big=d.big,L=big?.24:.2,sl=big?G2:St;
+  if(t==='pistol'){const big=d.big,L=big?.24:.2,sl=big?G2:St;const o0=g.children.length;
     // slide with serrations and an ejection port, polymer frame, angled grip, trigger guard
     P([[.06,.0],[.06,.036],[.05,.042],[-L+.06,.042],[-L+.05,.036],[-L+.05,0]],.032,sl,0,.004);
     for(let i=0;i<7;i++)B(.034,.03,.003,0,.022,.045-i*.007,G,.0005);
@@ -1314,6 +1375,9 @@ function buildGun(w){const d=w.def,t=d.model,g=new THREE.Group();const G=vmMats.
     B(.006,.02,.006,0,-.042,.018,G,.002);
     C(.0075,.012,0,.018,-L+.05,G);B(.004,.012,.006,0,.048,-L+.065,G,.001);B(.022,.01,.008,0,.046,.05,G,.002);
     front=-L+.04;sy=.052;
+    // the USP uses the real pistol model once it has loaded (see realPistol); the shapes above are its fallback
+    if(!big&&realPistol){for(const c of g.children.slice(o0))g.remove(c);const m=realPistol.clone();m.rotation.y=Math.PI/2;m.position.set(0,PISTOL_AT.y,PISTOL_AT.z);g.add(m);
+      const b=new THREE.Box3().setFromObject(m),sl=m.getObjectByName('service_pistol_slide_a');front=b.min.z+.004;sy=sl?new THREE.Box3().setFromObject(sl).max.y-.002:b.max.y;}
     if(w.att.ext)B(.03,.04,.045,0,-.155,.085,Pm,.006);}
   else if(t==='rpg'){C(.042,1.0,0,0,.42,St);Cr(.042,.052,.12,0,0,.44,St);
     Cr(.04,.075,.2,0,0,-.58,vmMats.green);mesh(new THREE.ConeGeometry(.075,.24,18),vmMats.green,0,0,-.9,g,{rx:-Math.PI/2,cast:false});C(.03,.06,0,0,-.52,St);
@@ -1971,7 +2035,7 @@ function updateWorld(dt){
    their own tab; friends connect straight to that tab over WebRTC, found through the free PeerJS cloud.
    Each player moves and aims locally and reports hits; the host keeps the cash and sends the world back
    about 15 times a second. Voice chat connects every player in voice directly to every other. */
-const NET_PREFIX='holdout-v5-',CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ',MAX_PLAYERS=4;
+const NET_PREFIX='holdout-v6-',CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ',MAX_PLAYERS=4;
 let net=null,myPid='solo';
 const remotes=new Map();   // host only: pid -> guest record
 let roster=[];             // everyone in the room: {pid,name,x,z,yaw,st,cash,voice,muted,peerId,kills,inGame,crouch}
@@ -2213,9 +2277,13 @@ function netTick(dt){
 /* ---------- loop ---------- */
 /* ---------- image-based lighting and post-processing ---------- */
 // The sky doubles as the environment map, so metal, glass, water and wet stone reflect it.
-{const envScene=new THREE.Scene();const s2=new THREE.Mesh(sky.geometry,skyMat.clone());s2.material.uniforms.sunK.value=.35;envScene.add(s2);
+function buildEnv(){const envScene=new THREE.Scene();const m2=skyMat.clone();Object.assign(m2.uniforms,{sunK:{value:.35},cap:{value:3},tSky:{value:skyMat.uniforms.tSky.value},hasSky:{value:skyMat.uniforms.hasSky.value}});
+ envScene.add(new THREE.Mesh(sky.geometry,m2));
  const ground=new THREE.Mesh(new THREE.CircleGeometry(250,24),new THREE.MeshBasicMaterial({color:col(0x6a6252)}));ground.rotation.x=-Math.PI/2;ground.position.y=-2;envScene.add(ground);
- const pm=new THREE.PMREMGenerator(renderer);const env=pm.fromScene(envScene,0,.1,1000).texture;scene.environment=env;viewScene.environment=env;pm.dispose();
+ const pm=new THREE.PMREMGenerator(renderer);const old=scene.environment;const env=pm.fromScene(envScene,0,.1,1000).texture;scene.environment=env;viewScene.environment=env;pm.dispose();m2.dispose();
+ if(old)old.dispose();}
+texLoader.load('tex/v6/sky.jpg',t=>{t.minFilter=THREE.LinearFilter;t.generateMipmaps=false;skyMat.uniforms.tSky.value=t;skyMat.uniforms.hasSky.value=1;buildEnv();},undefined,()=>{});
+{buildEnv();
  // diffuse sky light is strong in a plain sky model; keep shiny things fully reflective and tone down the rest
  scene.traverse(o=>{const m=o.material;if(m&&m.isMeshStandardMaterial&&m.metalness<.5&&m.envMapIntensity===1)m.envMapIntensity=.75;});}
 // HDR scene target -> soft-threshold bloom over a five-level mip chain -> filmic tone map, grade, vignette, grain.
@@ -2295,7 +2363,7 @@ $('nameIn').value=store.get('holdout-name')||'';
 if(coarse)markTouch();
 requestAnimationFrame(frame);
 // Small hook for automated play-testing.
-window.__holdout={dbg:{scene,viewScene,renderer,POST,sun,M,camera,impact,decals,casings,solids},get state(){return state;},player,ents,get wave(){return wave;},startWave:n=>{startWave(n);},give:giveWeapon,spawnEnemy,spawnHeli,spawnAlly,callAirstrike,
+window.__holdout={dbg:{scene,viewScene,renderer,POST,sun,M,camera,impact,decals,casings,solids,SND,propSrc,get realPistol(){return realPistol;}},get state(){return state;},player,ents,get wave(){return wave;},startWave:n=>{startWave(n);},give:giveWeapon,spawnEnemy,spawnHeli,spawnAlly,callAirstrike,
   get net(){return net&&{host:net.host,code:net.code,pid:myPid};},remotes,get roster(){return currentRoster();},voice,avatars,openShop,closeShop,shopAct,get shop(){return shopOpen;},get gWave(){return gWave;},
   set interT(v){interT=v;},set aim(v){aiming=v;},set fire(v){fireHeld=v;if(v)triggerReady=true;},hurt:(d)=>hurtPlayer(d,0,0),info:()=>renderer.info.render,progs:()=>renderer.info.programs.map(p=>p.name+':'+p.cacheKey.slice(-60)),step:(n,dt=.05)=>{for(let i=0;i<n;i++){now+=dt;updatePlayer(dt);if(isGuest())updateProxies(dt);else{updateWaves(dt);updateEnts(dt);}updateProjs(dt);updateStrikes(dt);updateWorld(dt);}},get phase(){return phase;}};
 })();
