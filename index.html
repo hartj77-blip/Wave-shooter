@@ -2170,7 +2170,7 @@ function updatePlayer(dt){
   const rh=reloading>0?'Reloading':w&&w.mag===0&&w.res===0?'No ammo. Buy more at the weapon armory':w&&w.mag<=Math.ceil(magSize(w)*.25)?(isTouch?'Reload':'Press R to reload'):'';
   if(rh!==lastHud.rh){$('reloadHint').textContent=rh;lastHud.rh=rh;}}
 function updateViewmodel(dt){const w=curW();const sy=gunMesh?gunMesh.userData.sy:.05;
-  const hip=[.15,-.16,-.42],ads=[0,-sy,-.33];const sp=Math.hypot(player.vx,player.vz)/4.6;
+  const hip=[.15,-.16,-.42],ads=[0,-sy*vm.scale.y,-.33];const sp=Math.hypot(player.vx,player.vz)/4.6;
   vmState.kick*=Math.exp(-dt*16);vmState.kickR*=Math.exp(-dt*12);
   // the gun lags behind quick turns and drifts with breathing; recoil climbs, then mostly settles back once firing stops
   const idt=1/Math.max(dt,1e-3),dYaw=angDiff(player.yaw,vmState.ly)*idt,dPit=(player.pitch-vmState.lp-vmState.rp)*idt;
