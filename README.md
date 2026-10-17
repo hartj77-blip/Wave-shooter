@@ -22,7 +22,7 @@ Controls: WASD to move, Shift to sprint, C to crouch, mouse to aim and shoot, R 
 
 ## How it's built
 
-The game is in `index.html`: three.js r128 from cdnjs for rendering, no build step. Third-party assets and their licences are listed in `CREDITS.md`. Every real asset has a fallback, so the game still runs if a file fails to load.
+The game is in `index.html`: three.js r128 (`lib/three.min.js`, MIT) for rendering, no build step. Third-party assets and their licences are listed in `CREDITS.md`. Every real asset has a fallback, so the game still runs if a file fails to load.
 
 - **Surfaces:** photo-scanned CC0 textures from Poly Haven and ambientCG in `tex/v6/`. Each set is a colour map `_c`, a normal map `_n` and `_r` with ambient occlusion in red and roughness in green. `python3 tools/realtex.py tex/v6` downloads and rebuilds them (Python 3 with NumPy and Pillow). Older versions use the generated set in `tex/`, made by `tools/tex.py`.
 - **Sky and lighting:** a CC0 Poly Haven HDRI, turned so its sun lines up with the game's sun light, and stored as `tex/v6/sky.jpg` with a reversible curve that keeps its brightness range. It is both the background and the environment lighting. `python3 tools/realsky.py tex/v6` rebuilds it. Until it loads, a procedural sky stands in.
@@ -30,6 +30,8 @@ The game is in `index.html`: three.js r128 from cdnjs for rendering, no build st
 - **Soldiers:** an animated glTF model in `models/`, loaded with the three.js loaders in `lib/`. If it fails to load, the game falls back to its built-in soldiers.
 - **Sound:** gunfire, explosions and bullet impacts are CC0 recordings from Freesound in `sounds/`, cut into single shots by `python3 tools/realsound.py sounds` (needs ffmpeg). The game adds street echo and a speed-of-sound delay for distant shots. Everything else is synthesized, and so is any recording that hasn't loaded.
 - **Co-op:** `peerjs.min.js` is a local copy of PeerJS 1.5 (the page falls back to jsDelivr if it's missing).
+
+To play-test automatically, run `node tests/playtest.js` (needs Playwright: `npm i -g playwright && npx playwright install chromium`). It plays a solo game through 12 waves with an invulnerable player, checks that every wave ends and no enemy gets stuck out of reach, then checks that dying and restarting gives a clean run. Set `WAVES=20` for a longer run.
 
 For local co-op testing, run a PeerJS server and open `http://localhost:8000/?peerServer=localhost:9000`.
 
