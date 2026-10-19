@@ -352,6 +352,7 @@ table.sc{border-collapse:collapse;width:100%;font-size:17px;margin:16px 0 22px}
       </div>
       <p class="netmsg" id="netMsg"></p>
       <a class="best" href="versions.html" style="color:var(--ash)">Play earlier versions of this game</a>
+      <a class="best" href="https://github.com/hartj77-blip/Wave-shooter/issues/new" target="_blank" rel="noopener" style="color:var(--ash);margin-left:14px">Report a bug</a>
     </div>
   </div>
 </div>
@@ -437,12 +438,22 @@ table.sc{border-collapse:collapse;width:100%;font-size:17px;margin:16px 0 22px}
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<div id="fatal" hidden role="alert" style="position:fixed;inset:0;z-index:999;display:grid;place-items:center;background:#0d0f0c;color:#e8e6df;font:16px system-ui,sans-serif;text-align:center;padding:16px"><div><h2 style="margin:0 0 8px">Holdout couldn't start</h2><p id="fatalMsg" style="max-width:440px;margin:0 auto 16px;line-height:1.45;opacity:.8"></p><button onclick="location.reload()" style="font:inherit;padding:10px 22px;border-radius:8px;border:0;cursor:pointer">Try again</button></div></div>
+<script>
+// Shown instead of a blank screen if the 3D engine or WebGL isn't available.
+function holdoutFatal(m){var f=document.getElementById('fatal');document.getElementById('fatalMsg').textContent=m;f.hidden=false;f.style.display='grid';}
+window.addEventListener('error',function(e){if(!window.__holdout&&e.message)holdoutFatal('Something went wrong while loading ('+e.message+'). Reloading usually fixes it.');});
+</script>
+<script src="lib/three.min.js"></script>
+<script>if(!window.THREE)document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
 <script src="lib/GLTFLoader.js"></script>
 <script src="lib/SkeletonUtils.js"></script>
 <script>
 (function(){
 'use strict';
+if(!window.THREE){holdoutFatal("The 3D engine didn't load. Check your connection and reload.");return;}
+{const t=document.createElement('canvas');let ok=false;try{ok=!!(window.WebGLRenderingContext&&(t.getContext('webgl')||t.getContext('experimental-webgl')));}catch(e){}
+  if(!ok){holdoutFatal('This browser or device has WebGL turned off, and the game needs it for 3D. Try another browser, or turn on hardware acceleration in your browser settings.');return;}}
 const $=id=>document.getElementById(id);
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>x<a?a:x>b?b:x, lerp=(a,b,t)=>a+(b-a)*t, rand=(a,b)=>a+Math.random()*(b-a);
@@ -1603,7 +1614,9 @@ function waveSpec(n){const q=[];const sold=Math.min(38,4+n*2),elite=n>=4?Math.fl
   const dogs=n>=3?(n%3===0?3+n:Math.floor(n/4)):0;const at=Math.floor(q.length*.35);for(let i=0;i<dogs;i++)q.splice(at,0,'dog');
   const juggs=n>=5&&n%5===0?1+Math.floor(n/10):(n>10&&n%2===0?1:0);for(let i=0;i<juggs;i++)q.splice(Math.floor(q.length*(.5+.2*i)),0,'jugg');
   const helis=n>=6&&n%3===0?(n>=15?2:1):(n>=13&&n%4===0?1:0);return {q,helis};}
-function spawnEnemy(type){const sp=SPAWNS[Math.random()*SPAWNS.length|0];const [lx,lz]=rot(sp.k,rand(-2.5,2.5),rand(-1.5,1.5));
+// Prefer streets nobody is standing near, so enemies don't appear on top of a player at a roadblock.
+function pickSpawn(){const ps=targets(),far=SPAWNS.filter(sp=>ps.every(p=>Math.hypot(p.x-sp.x,p.z-sp.z)>22));const pool=far.length?far:SPAWNS;return pool[Math.random()*pool.length|0];}
+function spawnEnemy(type){const sp=pickSpawn();const [lx,lz]=rot(sp.k,rand(-2.5,2.5),rand(-1.5,1.5));
   const s=wStat(wave);const e={id:++entSeq,type,x:sp.x+lx,z:sp.z+lz,yaw:0,dead:false,deathT:0,fallDir:1,phase:Math.random()*TAU,losT:0,los:false,react:.6,burst:0,pause:rand(.3,1),fireCD:0,strafe:0,strafeT:0,flinch:0,mv:false,flashT:0};
   if(type==='dog'){e.hp=70+8*wave;e.speed=rand(6.2,7.2);e.biteCD=0;}
   else if(type==='jugg'){e.hp=2400+260*wave;e.speed=1.45;e.acc=s.acc*.6;e.dmg=s.dmg*.8+3;e.pref=4;}
@@ -2609,7 +2622,7 @@ $('nameIn').value=store.get('holdout-name')||'';
 if(coarse)markTouch();
 requestAnimationFrame(frame);
 // Small hook for automated play-testing.
-window.__holdout={dbg:{scene,viewScene,renderer,POST,sun,M,camera,impact,decals,casings,solids,SND,propSrc,get realPistol(){return realPistol;}},get state(){return state;},player,ents,get wave(){return wave;},startWave:n=>{startWave(n);},give:giveWeapon,spawnEnemy,spawnHeli,spawnAlly,callAirstrike,
+window.__holdout={dbg:{scene,viewScene,renderer,POST,sun,M,camera,impact,decals,casings,solids,SND,propSrc,get realPistol(){return realPistol;}},get state(){return state;},player,ents,get wave(){return wave;},startWave:n=>{startWave(n);},hurtEnt,give:giveWeapon,spawnEnemy,spawnHeli,spawnAlly,callAirstrike,
   get net(){return net&&{host:net.host,code:net.code,pid:myPid};},remotes,get roster(){return currentRoster();},voice,avatars,openShop,closeShop,shopAct,get shop(){return shopOpen;},get gWave(){return gWave;},
   setCond,get cond(){return cond;},throwKind,smokes,fires,get shopKeys(){return shopKeys;},settings,
   set interT(v){interT=v;},set aim(v){aiming=v;},set fire(v){fireHeld=v;if(v)triggerReady=true;},hurt:(d)=>hurtPlayer(d,0,0),info:()=>renderer.info.render,progs:()=>renderer.info.programs.map(p=>p.name+':'+p.cacheKey.slice(-60)),step:(n,dt=.05)=>{for(let i=0;i<n;i++){now+=dt;updatePlayer(dt);if(isGuest())updateProxies(dt);else{updateWaves(dt);updateEnts(dt);}updateProjs(dt);updateStrikes(dt);updateWorld(dt);}},get phase(){return phase;}};
