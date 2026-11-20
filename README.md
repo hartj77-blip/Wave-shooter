@@ -42,3 +42,7 @@ Players normally connect directly. Some networks, mobile data especially, block 
 ## Versions
 
 Every release stays playable. `index.html` is the latest build, `versions.html` lists the older ones, and each old build is a frozen copy in `versions/`. Before changing `index.html` for a new release, copy it to `versions/<n>-<name>.html`, add a card for it in `versions.html`, and bump `NET_PREFIX` in the new build so old and new co-op rooms don't mix. From version 4 on, a frozen copy loads its textures from `tex/` one folder up, so change `'tex/'` to `'../tex/'` in the copy, and keep any texture an old version uses. From version 5 on, do the same for `lib/` (the script tags) and `models/` (the soldier loader). From version 6 on, also do it for the sky (`'tex/v6/sky.jpg'`), the props (`'models/props/'`) and `sounds/`. Put replacement assets under new names or folders (like `tex/v6/`) rather than overwriting files an old version uses.
+
+## License
+
+The game's own code is MIT, see [LICENSE](LICENSE). Third-party libraries and assets keep their own licences, listed in [CREDITS.md](CREDITS.md).
